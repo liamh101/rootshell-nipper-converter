@@ -8,7 +8,7 @@ How to use
 
 Output
 
-`prism_original.xml`
+`prism_original.json`
 
 Development Environment:
 
