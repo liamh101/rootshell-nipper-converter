@@ -2,7 +2,7 @@
 
 Convert a simple Nipper 3 XML file to a Prism JSON file. 
 
-How to use
+### How to use
 
 `./prismNipper3 original.xml`
 
@@ -10,13 +10,13 @@ Output
 
 `prism_original.json`
 
-Development Environment:
+### Development Environment:
 
 `docker build -t gonipper .`
 
 `docker run -it -v $(pwd):/usr/local/go/src/prismNipper3 gonipper bash`
 
-Build: 
+#### Build: 
 
 Linux
 `go build`
