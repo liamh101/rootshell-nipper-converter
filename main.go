@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"encoding/xml"
+	"regexp"
 	"fmt"
 	"io"
 	"os"
@@ -267,6 +268,12 @@ func main() {
 	fmt.Println("Looking for Nipper V3 File: " + filename)
 	report := parseNipperFile(filename)
 
+	if (len(report.Sections.Section) == 0) {
+		fmt.Println("No contents found in report. Nipper is prown to generating invalid XML. Please check.")
+	}
+
+	fmt.Println("Generating Report")
+
 	var prismResult PrismBaseFile
 	prismResult.Version = 1
 
@@ -320,10 +327,22 @@ func parseNipperFile(filename string) Report {
 
 	byteValue, _ := io.ReadAll(xmlFile)
 
+
+	fmt.Println("Cleaning File")
+
+	// Nipper files are invalid by default
+	byteValue = cleanFile(byteValue)
+
 	var result Report
 	xml.Unmarshal([]byte(byteValue), &result)
 
 	return result
+}
+
+func cleanFile(fileContents []byte) []byte {
+	re := regexp.MustCompile(`3D="."`)
+
+	return re.ReplaceAll([]byte(fileContents), []byte(""))
 }
 
 func createJsonFile(prismResult PrismBaseFile, filename string) {
