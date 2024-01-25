@@ -4,7 +4,11 @@ Convert a simple Nipper 3 XML file to a Prism JSON file.
 
 How to use
 
-`./prismNipper3 original.xml original_prism.json`
+`./prismNipper3 original.xml`
+
+Output
+
+`prism_original.xml`
 
 Development Environment:
 
