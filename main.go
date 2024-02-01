@@ -306,12 +306,114 @@ func main() {
 					}
 				}
 
+				// remove phrase "Nipper" from report
+				issue.NipperToPrism()
 				prismResult.Issues = append(prismResult.Issues, issue)
 			}
 		}
 	}
-
+	// Add Software Audit
+	prismResult.Issues = append(prismResult.Issues, report.SoftwareAudit())
 	createJsonFile(prismResult, filename)
+}
+
+/* ## Method to search Nipper XML and pull Audit information and format it into a finding for Prism ## */
+func (r *Report) SoftwareAudit() PrismItem {
+	issue := PrismItem{}
+	issue.Name = "Software Audit"
+	issue.Finding = "<p>Consultants performed a software vulnerability audit detailed in the technical details below.</p>"
+	issue.Summary = "<p>The NVD published by NIST was used to compare the device type, model and software version against the database of known vulnerabilities. Each vulnerability finding is described with a CVE with details and information in the table shown below.</p>"
+	issue.Recommendation = "<p>It is recommended that regardless of the number of vulnerabilities identified, they will all typically all be resolved by following the recommendations listed below;</p><ul><li>It is recommended that the latest software updates should be applied to all devices.</li><li>It is recommended that the current patching policy should be reviewed. That review should include the scheduling of updates and whether automation can be used to automatically deploy the updated versions. Although consultants understand that it may not be possible to achieve automation for all devices, this process should at least be attempted.</li><li>Finally, consultants recommend that all devices are regularly audited against the latest vulnerability databases to identify any systems that may be at risk.</li></ul>"
+	issue.TechnicalDetails = "<p>A review of the current software was fopund to have the foolowing resulting CVE's:</p>"
+	issue.OriginalRiskRating = "Info"
+	issue.ClientDefinedRiskRating = "Info"
+	audit_buff := []string{}
+	open_table := "<table><tbody>"
+	close_table := "</tbody></table>"
+	audit_buff = append(audit_buff, open_table)
+	report := r
+	issue.AffectedHosts = Hosts(report)
+	for _, section := range report.Sections.Section {
+		for _, subsections := range section.Subsections.Section {
+			if strings.Contains(subsections.Title, "CVE") {
+				cve_name := subsections.Title
+				cve_hosts := CVEgetHosts(subsections.Devices.Device)
+				for _, cve := range subsections.Subsections.Section {
+					discrip := []string{}
+					for _, cont := range cve.Contents.Content {
+						discrip = append(discrip, cont.CharData)
+					}
+					c := strings.Join(discrip, "")
+					c = strings.TrimSpace(c)
+					if len(c) > 166 {
+						a := fmt.Sprintf("<tr><td>%s</td><td>%s</td><td>%v</td></tr>", cve_name, strings.Replace(c, "Nipper performed a lookup of the CWE details as part of the vulnerability audit. This section details that information for this finding.", "", -1), cve_hosts)
+						audit_buff = append(audit_buff, a)
+						issue.Cves = append(issue.Cves, cve_name)
+					}
+				}
+			}
+		}
+	}
+	audit_buff = append(audit_buff, close_table)
+	str := strings.Join(audit_buff, "\n")
+	cwe, _ := regexp.Compile("CWE-[0-9]{2,4}")
+	for _, c := range cwe.FindAllString(str, -1) {
+		uri := fmt.Sprintf("https://cwe.mitre.org/data/definitions/%s.html", strings.Replace(c, "CWE-", "", -1))
+		issue.References = append(issue.References, uri)
+	}
+	issue.References = RemoveDuplicatesFromSlice(issue.References)
+	issue.TechnicalDetails = issue.TechnicalDetails + str
+	return issue
+}
+
+/* ## Method to remove all Nipper phrasing and replace it with RS SOP compatable reporting ## */
+func (p *PrismItem) NipperToPrism() PrismItem {
+	issue := p
+	issue.Finding = strings.Replace(issue.Finding, "Nipper", "Consultants", -1)
+	issue.Recommendation = strings.Replace(issue.Recommendation, "Nipper recommends that ", "It is recommended that ", -1)
+	issue.Recommendation = strings.Replace(issue.Recommendation, "Nipper suggests that ", "It is recommended that ", -1)
+	issue.Recommendation = strings.Replace(issue.Recommendation, "Nipper strongly recommends that ", "It is recommended that ", -1)
+	return *issue
+}
+
+/* ## Remove all duplicates from scrapped list ## */
+func RemoveDuplicatesFromSlice(s []string) []string {
+	m := make(map[string]bool)
+	for _, item := range s {
+		if _, ok := m[item]; ok {
+		} else {
+			m[item] = true
+		}
+	}
+	var result []string
+	for item, _ := range m {
+		result = append(result, item)
+	}
+	return result
+}
+
+/* ## Get Devices from the head of the report ## */
+func Hosts(r *Report) []PrismHost {
+	var hosts []PrismHost
+	for _, device := range r.Devices.Device {
+		var host PrismHost
+		host.Name = device.Name
+		hosts = append(hosts, host)
+	}
+	return hosts
+}
+
+/* ## For each specific CVE get hosts ## */
+func CVEgetHosts(devices []Device) string {
+	var hosts []string
+	var hhosts string
+	for _, device := range devices {
+		var host string
+		host = device.Name
+		hosts = append(hosts, host)
+		hhosts = strings.Join(hosts, ", ")
+	}
+	return hhosts
 }
 
 func parseNipperFile(filename string) Report {
